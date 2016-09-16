@@ -86,100 +86,141 @@ class Dummy_Translator
   }
 
   /**
-   * Tanslate the theme or plugin
+   * Tanslate the Core, a Theme or a Plugin
    *
    * @return String
    */
   function translate() {
     $textdomain = $_POST['textdomain'];
     $dummytext  = $_POST['dummytext'];
+    $item       = 'theme';
 
     // Check the nonce
     check_ajax_referer( 'wpdt-translate-' . $textdomain,  'nonce');
 
-    if ( get_option( 'wpdt_mode_translation' ) == 1 ) {
-      $this->translate_append( $textdomain, $dummytext );
-      wp_die();
-      return;
+    if ( $item == 'core' ) {
+      $item_list_table = $this->get_core_list_table();
+    } elseif ( $item == 'theme' ) {
+      $item_list_table = $this->get_theme_list_table();
+    } else {
+      $item_list_table = $this->get_plugins_list_table();
     }
 
-    $this->translate_replace( $textdomain, $dummytext );
+		$this->copy_source_language_file( $textdomain, $item_list_table );
+
+		$po_file = $this->read_po_file( $textdomain );
+
+    if ( get_option( 'wpdt_mode_translation' ) == 0 ) {
+      $po_file_dummy = $this->replace_dummytext( $dummytext, $po_file );
+    } else {
+      $po_file_dummy = $this->append_dummytext( $dummytext, $po_file );
+    }
+
+    $this->save_po_file( $textdomain, $po_file_dummy );
+
+		$this->generate_mo_file( $textdomain );
+
+    echo "success";
+
   	wp_die();
   }
 
   /**
-   * Tanslate with replace mode
+   * Copy .pot / .po file from Core, Theme or Plugin to this plugin's
+   * translations folder
    *
-   * @return String
+   * @param String $textdomain
+   * @param String $dummytext
+   * @param Object $item_list_table
+   *
+   * @return Void
    */
-  function translate_replace( $textdomain, $dummytext ) {
-
-    // Instantiate theme list
-    $theme_list_table = new WPDT_Theme_List_Table();
-
-		// Create a Translations instance using a po file
-		$translations = Gettext\Translations::fromPoFile(   $theme_list_table->find_language_file( $textdomain) );
+  function copy_source_language_file( $textdomain, $item_list_table ) {
+    // Create a Translations instance using a po file
+		$translations = Gettext\Translations::fromPoFile(  $item_list_table->find_language_file( $textdomain ) );
 
 		// Save it in size this plugin trnalations directory
 		$translations->toPoFile(WPDT_PLUGIN_DIR . '/translations/' . $textdomain . '.po');
-
-    // Read the .po file
-    $poFile = file_get_contents(WPDT_PLUGIN_DIR . '/translations/' . $textdomain . '.po');
-
-    // Replace msgstr "" with msgstr "dummytext"
-    $poFile = preg_replace("/msgst(r|r\[.]) \"/", "$0" . $dummytext, $poFile);
-
-    // Save it again this plugin trnalations directory
-    file_put_contents(WPDT_PLUGIN_DIR . '/translations/' . $textdomain . '.po', $poFile);
-
-		// Read the .po file
-		$translations = Translations::fromPoFile(WPDT_PLUGIN_DIR . '/translations/' . $textdomain . '.po');
-
-    // Generate .mo file
-		$translations->toMoFile(WPDT_PLUGIN_DIR . '/translations/' . $textdomain . '.mo');
-
-    echo "success";
   }
 
   /**
-   * Tanslate with append mode
+   * Copy .pot / .po file from Core, Theme or Plugin to this plugin's
+   * translations folder.
+   *
+   * @param String $textdomain
    *
    * @return String
    */
-  function translate_append( $textdomain, $dummytext ) {
+  function read_po_file( $textdomain ) {
+    $po_file = file_get_contents(WPDT_PLUGIN_DIR . '/translations/' . $textdomain . '.po');
 
-    // Instantiate theme list
-    $theme_list_table = new WPDT_Theme_List_Table();
+    return $po_file;
+  }
 
-		//Create a Translations instance using a po file
-		$translations = Gettext\Translations::fromPoFile( $theme_list_table->find_language_file( $textdomain) );
+  /**
+   * Save the generated .po file which includes the dummytext.
+   *
+   * @param String $textdomain
+   * @param String $dummy_po_file
+   *
+   * @return Void
+   */
+  function save_po_file( $textdomain, $dummy_po_file ) {
+    file_put_contents(WPDT_PLUGIN_DIR . '/translations/' . $textdomain . '.po', $dummy_po_file);
+  }
 
-		// Save it in size this plugin trnalations directory
-		$translations->toPoFile(WPDT_PLUGIN_DIR . '/translations/' . $textdomain . '.po');
+  /**
+   * Read the generated .po file which includes the dummytext.
+   * Generate .mo file from .po file
+   *
+   * @param String $textdomain
+   *
+   * @return Void
+   */
+  function generate_mo_file( $textdomain ) {
+		$translations = Translations::fromPoFile(WPDT_PLUGIN_DIR . '/translations/' . $textdomain . '.po');
 
-    // Read the .po file
-    $poFile = file_get_contents(WPDT_PLUGIN_DIR . '/translations/' . $textdomain . '.po');
+		$translations->toMoFile(WPDT_PLUGIN_DIR . '/translations/' . $textdomain . '.mo');
+  }
 
+  /**
+   * Recieve content of .po file.
+   * Replace dummytext with msgstr's value.
+   *
+   * @param String $dummytext
+   * @param String $po_file
+   *
+   * @return String
+   */
+  function replace_dummytext( $dummytext, $po_file ) {
+    $po_file_dummy = preg_replace("/msgst(r|r\[.]) \"/", "$0" . $dummytext, $po_file );
+
+    return $po_file_dummy;
+  }
+
+  /**
+   * Recieve content of .po file.
+   * Get value of msgid.
+   * Append the dummytext to it.
+   * Replace it with msgstr's value.
+   *
+   * @param String $dummytext
+   * @param String $po_file
+   *
+   * @return String
+   */
+  function append_dummytext( $dummytext, $po_file ) {
     // Source of Regex: https://goo.gl/3FCxhG
-    $re = '~^msgid\h+"(.*)"(?:\Rmsgid_plural\h+"(.*)")?(?:\Rmsgstr(?:\[\d])?\h*"")+$~m';
-    $poFile = preg_replace_callback($re, function($m) use ($dummytext) {
+    $regex = '~^msgid\h+"(.*)"(?:\Rmsgid_plural\h+"(.*)")?(?:\Rmsgstr(?:\[\d])?\h*"")+$~m';
+    $po_file_dummy = preg_replace_callback( $regex, function( $m ) use ( $dummytext ) {
       $loc = $m[0];
       if (isset($m[2])) {
         $loc = str_replace( 'msgstr[1] ""','msgstr[1] "'. $dummytext . '' . $m[2] . '"', $loc );
       }
       return preg_replace( '~^(msgstr(?:\[0])?\h+)""~m', "$1\"$dummytext$m[1]\"", $loc );
-    }, $poFile);
+    }, $po_file );
 
-    // Save it again this plugin trnalations directory
-    file_put_contents(WPDT_PLUGIN_DIR . '/translations/' . $textdomain . '.po', $poFile);
-
-		// Read the .po file
-		$translations = Translations::fromPoFile(WPDT_PLUGIN_DIR . '/translations/' . $textdomain . '.po');
-
-    // Generate .mo file
-		$translations->toMoFile(WPDT_PLUGIN_DIR . '/translations/' . $textdomain . '.mo');
-
-    echo "success";
+    return $po_file_dummy;
   }
 
   /**
@@ -345,6 +386,16 @@ class Dummy_Translator
   public function set_default_settings() {
     update_option( 'wpdt_dummytext', 'Translated', 'yes');
     update_option( 'wpdt_mode_translation', 0, 'yes');
+  }
+
+  /**
+   * Get theme list table
+   *
+   * @return String
+   */
+  private function get_theme_list_table() {
+    $theme_list_table = new WPDT_Theme_List_Table();
+    return $theme_list_table;
   }
 
 }
