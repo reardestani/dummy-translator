@@ -1,0 +1,12 @@
+.column-dummytext > span {
+    background: #EEE;
+    padding: 0px 5px;
+    width: 90%;
+    display: block;
+    border: 1px solid #dedede;
+}
+
+.column-file {
+  white-space: nowrap;
+  overflow: scroll;
+}
