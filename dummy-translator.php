@@ -24,6 +24,7 @@ if( ! class_exists( 'WP_List_Table' ) ) {
 
 require_once( WPDT_PLUGIN_DIR . "/includes/gettext/src/autoloader.php" );
 require_once( WPDT_PLUGIN_DIR . "/includes/cldr-to-gettext-plural-rules/src/autoloader.php" );
+require_once( WPDT_PLUGIN_DIR . "/includes/class-status-list-table.php" );
 require_once( WPDT_PLUGIN_DIR . "/includes/class-theme-list-table.php" );
 require_once( WPDT_PLUGIN_DIR . "/includes/class-plugins-list-table.php" );
 
@@ -34,20 +35,31 @@ use Gettext\Translator;
 class Dummy_Translator
 {
 
+  protected $errors = [];
+
 	public function __construct() {
 		add_action( 'admin_menu', array( $this, 'register_submenu_pages' ) );
 		add_action( 'admin_menu', array( $this, 'remove_submenu_pages' ) );
     add_action( 'admin_enqueue_scripts', array( $this, 'enqueue' ) );
-    add_action( 'wp_ajax_wpdt_delete', array( $this, 'delete_translation' ) );
     add_action( 'wp_ajax_wpdt_translate', array( $this, 'translate' ) );
+    add_action( 'wp_ajax_wpdt_delete', array( $this, 'delete' ) );
     add_action( 'init', array( $this, 'load_textdomain' ) );
 
   	add_action( 'admin_init', array( $this, 'register_settings' ));
   	//add_action( 'admin_init', array( $this, 'set_default_settings' ));
 
-    register_activation_hook( WPDT_PLUGIN, array( 'Dummy_Translator', 'set_default_settings' ) );
+    register_activation_hook( WPDT_PLUGIN, array( $this, 'register_activation_hooks' ) );
 
 	}
+
+  public function register_activation_hooks() {
+    $this->set_default_settings();
+    $this->create_translations_directory();
+  }
+
+  public function create_translations_directory() {
+    //eturn false;
+  }
 
   /**
    * Loads all the translations in WordPress from translations direcory
@@ -139,6 +151,9 @@ class Dummy_Translator
     // Create a Translations instance using a po file
 		$translations = Gettext\Translations::fromPoFile(  $item_list_table->find_language_file( $textdomain ) );
 
+    // If there is no translations folder, create one
+
+
 		// Save it in size this plugin trnalations directory
 		$translations->toPoFile(WPDT_PLUGIN_DIR . '/translations/' . $textdomain . '.po');
   }
@@ -224,11 +239,46 @@ class Dummy_Translator
   }
 
   /**
+   * Delete .po / .mo files from translations folder
+   *
+   * @return String
+   */
+  function delete() {
+    $textdomain = $_POST['textdomain'];
+
+    // Check the nonce
+    check_ajax_referer( 'wpdt-delete-' . $textdomain,  'nonce');
+
+    $po_file = WPDT_PLUGIN_TRANSLATIONS_DIR . '/' . $textdomain . '.po';
+    $mo_file = WPDT_PLUGIN_TRANSLATIONS_DIR . '/' . $textdomain . '.mo';
+
+    if ( unlink( $po_file ) == false || unlink( $mo_file ) == false ) {
+      echo 'error';
+
+      wp_die();
+    }
+
+
+    echo 'success';
+
+    wp_die();
+  }
+
+  /**
    * Register Dummy Translator page in Tools > Dummy Translator
    *
    * @return Void
    */
 	public function register_submenu_pages() {
+    add_submenu_page(
+      'tools.php',
+      'Dummy Translator Status',
+      'Dummy Translator Status',
+      'manage_options',
+      'dummy-translator-status',
+      array( $this, 'render_page' )
+    );
+
     add_submenu_page(
       'tools.php',
       'Dummy Translator',
@@ -254,6 +304,7 @@ class Dummy_Translator
    * @return Void
    */
 	public function remove_submenu_pages() {
+    remove_submenu_page( 'tools.php', 'dummy-translator-status' );
     remove_submenu_page( 'tools.php', 'dummy-translator-options' );
 	}
 
@@ -264,6 +315,10 @@ class Dummy_Translator
    */
 	public function render_page() {
     // Return options page based on page
+    if( $_GET['page'] === 'dummy-translator-status' ) {
+      return $this->build_status_page();
+    }
+
     if( $_GET['page'] === 'dummy-translator-options' ) {
       return $this->build_options_page();
     }
@@ -279,6 +334,7 @@ class Dummy_Translator
 	public function build_page_tabs() {
     ?>
       <h2 class="nav-tab-wrapper wp-clearfix">
+        <a href="<?php echo admin_url( 'tools.php?page=dummy-translator-status' ); ?>" class="nav-tab <?php echo ( $_GET['page'] == 'dummy-translator-status' ) ? 'nav-tab-active' : ''; ?>"><?php _e( 'System Status', 'dummy-translator' ) ?></a>
         <a href="<?php echo admin_url( 'tools.php?page=dummy-translator' ); ?>" class="nav-tab <?php echo ( $_GET['page'] == 'dummy-translator' ) ? 'nav-tab-active' : ''; ?>"><?php _e( 'Translate', 'dummy-translator' ) ?></a>
         <a href="<?php echo admin_url( 'tools.php?page=dummy-translator-options' ); ?>" class="nav-tab <?php echo ( $_GET['page'] == 'dummy-translator-options' ) ? 'nav-tab-active' : ''; ?>"><?php _e( 'Options', 'dummy-translator' ) ?></a>
       </h2>
@@ -292,7 +348,7 @@ class Dummy_Translator
    */
 	public function build_translate_page() {
     // Instantiate the custom list tables
-		$theme_list_table   = new WPDT_Theme_List_Table();
+		$theme_list_table   = $this->get_theme_list_table();
 		$plugins_list_table = new WPDT_Plugins_List_Table();
 
     // Prepare the items to show
@@ -377,6 +433,33 @@ class Dummy_Translator
     <?php
 	}
 
+  /**
+   * Build status page
+   *
+   * @return Mixed
+   */
+	public function build_status_page() {
+    $status_list_table   = $this->get_status_list_table();
+
+    $status_list_table->prepare_items();
+    ?>
+    <div class="wrap">
+      <h1><?php _e( 'Dummy Translator System Status', 'dummy-translator' ) ?></h1>
+
+      <?php $this->build_page_tabs(); ?>
+
+      <p><?php _e( 'It seems there are some issues in the server, please fix all the below issues to be able to use this plugin as expected. The <strong>System Status</strong> page will be hidden automatically when all the issues are resolved.', 'dummy-translator' ) ?></p>
+
+      <div>
+      	<h2><?php _e('Issues', 'dummy-translator' ) ?></h2>
+				<?php $status_list_table->display(); ?>
+			</div>
+
+
+    </div>
+    <?php
+	}
+
   public function register_settings() {
     //register our settings
     register_setting( 'wpdt-settings-group', 'wpdt_mode_translation' );
@@ -395,7 +478,19 @@ class Dummy_Translator
    */
   private function get_theme_list_table() {
     $theme_list_table = new WPDT_Theme_List_Table();
+
     return $theme_list_table;
+  }
+
+  /**
+   * Get theme list table
+   *
+   * @return String
+   */
+  private function get_status_list_table() {
+    $status_list_table = new WPDT_Status_List_Table();
+
+    return $status_list_table;
   }
 
 }
