@@ -184,7 +184,7 @@ class WPDT_Theme_List_Table extends WP_List_Table
       $delete_nonce = wp_create_nonce( 'wpdt-delete-' . $textdomain );
 
       if ( file_exists( $filename ) ) {
-          return '<a href="#" data-nonce="' . $translate_nonce . '" data-action="translate" class="wpdt-action">' . __( 'Retranslate', 'dummy-translator' ) . '</a> &middot <a href="#" data-nonce="' . $translate_nonce . '" data-action="delete" class="wpdt-action">' . __( 'Delete', 'dummy-translator' ) . '</a>';
+          return '<a href="#" data-nonce="' . $translate_nonce . '" data-action="translate" class="wpdt-action">' . __( 'Retranslate', 'dummy-translator' ) . '</a> &middot <a href="#" data-nonce="' . $delete_nonce . '" data-action="delete" class="wpdt-action wpdt-error">' . __( 'Delete', 'dummy-translator' ) . '</a>';
       } else {
           return '<a href="#" data-nonce="' . $translate_nonce . '" data-textdomain="' . $textdomain . '" data-action="translate" class="wpdt-action">' . __( 'Translate', 'dummy-translator' ) . '</a>';
       }

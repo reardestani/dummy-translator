@@ -58,7 +58,7 @@ class Dummy_Translator
   }
 
   public function create_translations_directory() {
-    //eturn false;
+    mkdir(  WPDT_PLUGIN_DIR . '/translations', 0755);
   }
 
   /**
@@ -86,8 +86,9 @@ class Dummy_Translator
    */
   function enqueue( $hook ) {
     // Return if not on Tools > Dummpy Translator page
-    if( 'tools_page_dummy-translator' != $hook ) {
-  	  return;
+
+    if ( ! preg_match( "/tools_page_dummy-translator/i", $hook ) ) {
+        return;
     }
 
     wp_register_style( 'wpdt_admin_css', WPDT_PLUGIN_URL . '/assets/css/styles.css' );
@@ -258,7 +259,6 @@ class Dummy_Translator
       wp_die();
     }
 
-
     echo 'success';
 
     wp_die();
@@ -270,15 +270,6 @@ class Dummy_Translator
    * @return Void
    */
 	public function register_submenu_pages() {
-    add_submenu_page(
-      'tools.php',
-      'Dummy Translator Status',
-      'Dummy Translator Status',
-      'manage_options',
-      'dummy-translator-status',
-      array( $this, 'render_page' )
-    );
-
     add_submenu_page(
       'tools.php',
       'Dummy Translator',
@@ -294,6 +285,15 @@ class Dummy_Translator
       'Dummy Translator Options',
       'manage_options',
       'dummy-translator-options',
+      array( $this, 'render_page' )
+    );
+
+    add_submenu_page(
+      'tools.php',
+      'Dummy Translator Status',
+      'Dummy Translator Status',
+      'manage_options',
+      'dummy-translator-status',
       array( $this, 'render_page' )
     );
 	}
@@ -332,11 +332,21 @@ class Dummy_Translator
    * @return Mixed
    */
 	public function build_page_tabs() {
+
+    $status_list_table = $this->get_status_list_table();
+
+
+
+    //$error="12 ";
+    if ( $status_list_table->check_error_found() == true ) {
+      $error = 'wpdt-system-error ';
+    }
+
     ?>
       <h2 class="nav-tab-wrapper wp-clearfix">
-        <a href="<?php echo admin_url( 'tools.php?page=dummy-translator-status' ); ?>" class="nav-tab <?php echo ( $_GET['page'] == 'dummy-translator-status' ) ? 'nav-tab-active' : ''; ?>"><?php _e( 'System Status', 'dummy-translator' ) ?></a>
         <a href="<?php echo admin_url( 'tools.php?page=dummy-translator' ); ?>" class="nav-tab <?php echo ( $_GET['page'] == 'dummy-translator' ) ? 'nav-tab-active' : ''; ?>"><?php _e( 'Translate', 'dummy-translator' ) ?></a>
         <a href="<?php echo admin_url( 'tools.php?page=dummy-translator-options' ); ?>" class="nav-tab <?php echo ( $_GET['page'] == 'dummy-translator-options' ) ? 'nav-tab-active' : ''; ?>"><?php _e( 'Options', 'dummy-translator' ) ?></a>
+        <a href="<?php echo admin_url( 'tools.php?page=dummy-translator-status' ); ?>" class="nav-tab  <?php echo $error; echo ( $_GET['page'] == 'dummy-translator-status' ) ? 'nav-tab-active' : ''; ?>"><?php _e( 'System Status', 'dummy-translator' ) ?></a>
       </h2>
     <?php
   }
@@ -384,7 +394,7 @@ class Dummy_Translator
 	public function build_options_page() {
     ?>
     <div class="wrap">
-      <h1><?php _e( 'Dummy Translator Options', 'dummy-translator' ) ?></h1>
+      <h1><?php _e( 'Dummy Translator', 'dummy-translator' ) ?> <small><?php echo WPDT_VERSION; ?></small></h1>
 
       <?php $this->build_page_tabs(); ?>
 
@@ -444,14 +454,14 @@ class Dummy_Translator
     $status_list_table->prepare_items();
     ?>
     <div class="wrap">
-      <h1><?php _e( 'Dummy Translator System Status', 'dummy-translator' ) ?></h1>
+      <h1><?php _e( 'Dummy Translator', 'dummy-translator' ) ?> <small><?php echo WPDT_VERSION; ?></small></h1>
 
       <?php $this->build_page_tabs(); ?>
 
-      <p><?php _e( 'It seems there are some issues in the server, please fix all the below issues to be able to use this plugin as expected. The <strong>System Status</strong> page will be hidden automatically when all the issues are resolved.', 'dummy-translator' ) ?></p>
+      <p><?php _e( 'It seems there are some issues in the server, please fix all the below issues to be able to use this plugin as expected.', 'dummy-translator' ) ?></p>
 
       <div>
-      	<h2><?php _e('Issues', 'dummy-translator' ) ?></h2>
+        <br>
 				<?php $status_list_table->display(); ?>
 			</div>
 
@@ -495,4 +505,5 @@ class Dummy_Translator
 
 }
 
-new Dummy_Translator();
+$dummy = new Dummy_Translator();
+//$dummy->create_translations_directory();
