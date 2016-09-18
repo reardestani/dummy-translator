@@ -6,9 +6,18 @@
     border: 1px solid #dedede;
 }
 
-.column-file {
+.tools_page_dummy-translator #the-list tr td {
   white-space: nowrap;
   overflow: scroll;
+}
+
+@media screen and (min-width:783px) {
+  .column-file {
+    direction: rtl;
+  }
+  .column-file span {
+    float: left;
+  }
 }
 
 .wpdt-error {
