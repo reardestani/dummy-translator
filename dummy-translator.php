@@ -106,20 +106,22 @@ class Dummy_Translator
   function translate() {
     $textdomain = $_POST['textdomain'];
     $dummytext  = $_POST['dummytext'];
-    $item       = 'theme';
+    $type       = $_POST['type'];
+    $plugin       = $_POST['plugin'];
 
     // Check the nonce
     check_ajax_referer( 'wpdt-translate-' . $textdomain,  'nonce');
 
-    if ( $item == 'core' ) {
+    if ( $type == 'core' ) {
       $item_list_table = $this->get_core_list_table();
-    } elseif ( $item == 'theme' ) {
+      $this->copy_core_language_file( $textdomain, $item_list_table );
+    } elseif ( $type == 'theme' ) {
       $item_list_table = $this->get_theme_list_table();
+      $this->copy_theme_language_file( $textdomain, $item_list_table );
     } else {
       $item_list_table = $this->get_plugins_list_table();
+      $this->copy_plugin_language_file( $plugin, $textdomain, $item_list_table );
     }
-
-		$this->copy_source_language_file( $textdomain, $item_list_table );
 
 		$po_file = $this->read_po_file( $textdomain );
 
@@ -148,9 +150,30 @@ class Dummy_Translator
    *
    * @return Void
    */
-  function copy_source_language_file( $textdomain, $item_list_table ) {
+  function copy_theme_language_file( $textdomain, $item_list_table ) {
     // Create a Translations instance using a po file
 		$translations = Gettext\Translations::fromPoFile(  $item_list_table->find_language_file( $textdomain ) );
+
+    // If there is no translations folder, create one
+
+
+		// Save it in size this plugin trnalations directory
+		$translations->toPoFile(WPDT_PLUGIN_DIR . '/translations/' . $textdomain . '.po');
+  }
+
+  /**
+   * Copy .pot / .po file from Core, Theme or Plugin to this plugin's
+   * translations folder
+   *
+   * @param String $textdomain
+   * @param String $dummytext
+   * @param Object $item_list_table
+   *
+   * @return Void
+   */
+  function copy_plugin_language_file( $plugin = '', $textdomain, $item_list_table ) {
+    // Create a Translations instance using a po file
+		$translations = Gettext\Translations::fromPoFile(  $item_list_table->find_language_file( $plugin, $textdomain ) );
 
     // If there is no translations folder, create one
 
@@ -501,6 +524,17 @@ class Dummy_Translator
     $status_list_table = new WPDT_Status_List_Table();
 
     return $status_list_table;
+  }
+
+  /**
+   * Get theme list table
+   *
+   * @return String
+   */
+  private function get_plugins_list_table() {
+    $plugins_list_table = new WPDT_Plugins_List_Table();
+
+    return $plugins_list_table;
   }
 
 }

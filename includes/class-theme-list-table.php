@@ -157,7 +157,7 @@ class WPDT_Theme_List_Table extends WP_List_Table
     if ( file_exists( $file ) ) {
         return ['success', $file];
     } else {
-        return ['error', 'No file. <a href="#" data-nonce="' . $generate_nonce . '" data-action="generate" class="wpdt-action">' . __( 'Generate', 'dummy-translator' ) . '</a>'];
+        return ['error', '<span>No file. <a href="#" data-nonce="' . $generate_nonce . '" data-action="generate" class="wpdt-action">' . __( 'Generate', 'dummy-translator' ) . '</a></span>'];
     }
   }
 
@@ -184,9 +184,9 @@ class WPDT_Theme_List_Table extends WP_List_Table
       $delete_nonce = wp_create_nonce( 'wpdt-delete-' . $textdomain );
 
       if ( file_exists( $filename ) ) {
-          return '<a href="#" data-nonce="' . $translate_nonce . '" data-action="translate" class="wpdt-action">' . __( 'Retranslate', 'dummy-translator' ) . '</a> &middot <a href="#" data-nonce="' . $delete_nonce . '" data-action="delete" class="wpdt-action wpdt-error">' . __( 'Delete', 'dummy-translator' ) . '</a>';
+          return '<a href="#" data-nonce="' . $translate_nonce . '" data-type="theme" data-action="translate" class="wpdt-action">' . __( 'Retranslate', 'dummy-translator' ) . '</a> &middot <a href="#" data-nonce="' . $delete_nonce . '" data-action="delete" class="wpdt-action wpdt-error">' . __( 'Delete', 'dummy-translator' ) . '</a>';
       } else {
-          return '<a href="#" data-nonce="' . $translate_nonce . '" data-textdomain="' . $textdomain . '" data-action="translate" class="wpdt-action">' . __( 'Translate', 'dummy-translator' ) . '</a>';
+          return '<a href="#" data-nonce="' . $translate_nonce . '" data-textdomain="' . $textdomain . '" data-type="theme" data-action="translate" class="wpdt-action">' . __( 'Translate', 'dummy-translator' ) . '</a>';
       }
     }
 
