@@ -5,10 +5,11 @@ jQuery(document).ready(function($) {
 
     var el         = $( e.target );
     var action     = 'wpdt_' + el.data('action');
-    var textdomain = el.parent().siblings('.textdomain').text();
-    var dummytext  = el.parent().siblings('.dummytext').text();
+    var textdomain = el.parents( 'td' ).siblings('.textdomain').text();
+    var dummytext  = el.parents( 'td' ).siblings('.dummytext').text();
     var type  = el.data('type');
     var plugin  = el.data('plugin');
+    var generated  = el.data('generated');
 
     var nonce = el.data('nonce');
 
@@ -18,6 +19,7 @@ jQuery(document).ready(function($) {
   		'dummytext': dummytext,
       'type': type,
       'plugin': plugin,
+      'generated': generated,
   		'nonce': nonce
   	};
   	// We can also pass the url value separately from ajaxurl for front end AJAX implementations

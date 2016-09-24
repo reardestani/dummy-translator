@@ -1,0 +1,24 @@
+{
+  "name": "dummy-translator",
+  "version": "1.0.0",
+  "description": "Generate dummy translations to test translation of themes and plugins.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/reardestani/dummy-translator.git"
+  },
+  "author": "Reza Ardestani",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/reardestani/dummy-translator/issues"
+  },
+  "homepage": "https://github.com/reardestani/dummy-translator#readme",
+  "devDependencies": {
+    "gulp": "^3.9.1",
+    "gulp-sort": "^2.0.0",
+    "gulp-wp-pot": "^1.3.1"
+  }
+}
