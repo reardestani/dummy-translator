@@ -22,8 +22,8 @@ if( ! class_exists( 'WP_List_Table' ) ) {
   require_once( ABSPATH . 'wp-admin/includes/class-wp-list-table.php' );
 }
 
-require_once( WPDT_PLUGIN_DIR . "/includes/gettext/src/autoloader.php" );
-require_once( WPDT_PLUGIN_DIR . "/includes/cldr-to-gettext-plural-rules/src/autoloader.php" );
+require_once( WPDT_PLUGIN_DIR . "/libraries/gettext/src/autoloader.php" );
+require_once( WPDT_PLUGIN_DIR . "/libraries/cldr-to-gettext-plural-rules/src/autoloader.php" );
 require_once( WPDT_PLUGIN_DIR . "/includes/class-status-list-table.php" );
 require_once( WPDT_PLUGIN_DIR . "/includes/class-theme-list-table.php" );
 require_once( WPDT_PLUGIN_DIR . "/includes/class-plugins-list-table.php" );
@@ -43,13 +43,13 @@ class Dummy_Translator
     add_action( 'admin_enqueue_scripts', array( $this, 'enqueue' ) );
     add_action( 'wp_ajax_wpdt_translate', array( $this, 'translate' ) );
     add_action( 'wp_ajax_wpdt_delete', array( $this, 'delete' ) );
+    add_action( 'wp_ajax_wpdt_generate', array( $this, 'generate' ) );
     add_action( 'init', array( $this, 'load_textdomain' ) );
 
   	add_action( 'admin_init', array( $this, 'register_settings' ));
   	//add_action( 'admin_init', array( $this, 'set_default_settings' ));
 
     register_activation_hook( WPDT_PLUGIN, array( $this, 'register_activation_hooks' ) );
-
 	}
 
   public function register_activation_hooks() {
@@ -107,21 +107,31 @@ class Dummy_Translator
     $textdomain = $_POST['textdomain'];
     $dummytext  = $_POST['dummytext'];
     $type       = $_POST['type'];
-    $plugin       = $_POST['plugin'];
+    $plugin     = $_POST['plugin'];
+    $generated     = $_POST['generated'];
+
+
 
     // Check the nonce
     check_ajax_referer( 'wpdt-translate-' . $textdomain,  'nonce');
 
-    if ( $type == 'core' ) {
-      $item_list_table = $this->get_core_list_table();
-      $this->copy_core_language_file( $textdomain, $item_list_table );
-    } elseif ( $type == 'theme' ) {
-      $item_list_table = $this->get_theme_list_table();
-      $this->copy_theme_language_file( $textdomain, $item_list_table );
-    } else {
-      $item_list_table = $this->get_plugins_list_table();
-      $this->copy_plugin_language_file( $plugin, $textdomain, $item_list_table );
+    if ( $generated != true ) {
+      if ( $type == 'core' ) {
+        $item_list_table = $this->get_core_list_table();
+        $this->copy_core_language_file( $textdomain, $item_list_table );
+      } elseif ( $type == 'theme' ) {
+        $item_list_table = $this->get_theme_list_table();
+        $this->copy_theme_language_file( $textdomain, $item_list_table );
+      } else {
+        $item_list_table = $this->get_plugins_list_table();
+        $this->copy_plugin_language_file( $plugin, $textdomain, $item_list_table );
+       }
     }
+
+
+
+
+
 
 		$po_file = $this->read_po_file( $textdomain );
 
@@ -140,6 +150,95 @@ class Dummy_Translator
   	wp_die();
   }
 
+
+  function generate( $plugin, $textdomain ) {
+
+    $textdomain = $_POST['textdomain'];
+    $dummytext  = $_POST['dummytext'];
+    $type       = $_POST['type'];
+    $plugin     = $_POST['plugin'];
+
+    // Check the nonce
+    check_ajax_referer( 'wpdt-generate-' . $textdomain,  'nonce');
+
+    $Directory = new RecursiveDirectoryIterator( WP_PLUGIN_DIR . '/' . $plugin );
+    $Iterator  = new RecursiveIteratorIterator( $Directory );
+
+    // Get only .pot files
+    $files = new RegexIterator($Iterator, '/^.+\.php/i', RecursiveRegexIterator::GET_MATCH);
+
+    //Or an interator
+    $translations = new Translations();
+    foreach ($files as $file) {
+      $translations->addFromPhpCodeFile($file, [
+        'functions' => [
+          '_e'         => 'gettext',
+          'esc_html_e' => 'gettext',
+          'esc_attr_e' => 'gettext',
+          '__'         => 'gettext',
+          'esc_html__' => 'gettext',
+          'esc_attr__' => 'gettext'
+        ]
+      ]);
+    }
+
+		// Save it in size this plugin trnalations directory
+		$translations->toPoFile(WPDT_PLUGIN_DIR . '/translations/' . $textdomain . '.pot');
+
+    // if ( $type == 'core' ) {
+    //   $item_list_table = $this->get_core_list_table();
+    //   $this->copy_core_language_file( $textdomain, $item_list_table );
+    // } elseif ( $type == 'theme' ) {
+    //   $item_list_table = $this->get_theme_list_table();
+    //   $this->copy_theme_language_file( $textdomain, $item_list_table );
+    // } else {
+    //   $item_list_table = $this->get_plugins_list_table();
+    //   $this->copy_plugin_language_file( $plugin, $textdomain, $item_list_table );
+    // }
+    //
+		// $po_file = $this->read_po_file( $textdomain );
+    //
+    // if ( get_option( 'wpdt_mode_translation' ) == 0 ) {
+    //   $po_file_dummy = $this->replace_dummytext( $dummytext, $po_file );
+    // } else {
+    //   $po_file_dummy = $this->append_dummytext( $dummytext, $po_file );
+    // }
+    //
+    // $this->save_po_file( $textdomain, $po_file_dummy );
+    //
+		// $this->generate_mo_file( $textdomain );
+
+    echo "success";
+
+  	wp_die();
+
+
+    //Using an array
+    //$filess = glob( WP_PLUGIN_DIR . '/LayerSlider/**/*.php');
+
+    // $Directory = new RecursiveDirectoryIterator( WP_PLUGIN_DIR . '/' . $plugin );
+    // $Iterator  = new RecursiveIteratorIterator( $Directory );
+    //
+    // // Get only .pot files
+    // $files = new RegexIterator($Iterator, '/^.+\.php/i', RecursiveRegexIterator::GET_MATCH);
+    //
+    // //Or an interator
+    // $translations = new Translations();
+    // foreach ($files as $file) {
+    //   $translations->addFromPhpCodeFile($file, [
+    //     'functions' => [
+    //       '_e' => 'gettext',
+    //       '__' => 'gettext'
+    //     ]
+    //   ]);
+    // }
+    //
+		// // Save it in size this plugin trnalations directory
+		// $translations->toPoFile(WPDT_PLUGIN_DIR . '/translations/' . $textdomain . '.pot');
+  }
+
+
+
   /**
    * Copy .pot / .po file from Core, Theme or Plugin to this plugin's
    * translations folder
@@ -154,9 +253,6 @@ class Dummy_Translator
     // Create a Translations instance using a po file
 		$translations = Gettext\Translations::fromPoFile(  $item_list_table->find_language_file( $textdomain ) );
 
-    // If there is no translations folder, create one
-
-
 		// Save it in size this plugin trnalations directory
 		$translations->toPoFile(WPDT_PLUGIN_DIR . '/translations/' . $textdomain . '.po');
   }
@@ -171,16 +267,14 @@ class Dummy_Translator
    *
    * @return Void
    */
-  function copy_plugin_language_file( $plugin = '', $textdomain, $item_list_table ) {
+  function copy_plugin_language_file( $plugin, $textdomain, $item_list_table ) {
     // Create a Translations instance using a po file
-		$translations = Gettext\Translations::fromPoFile(  $item_list_table->find_language_file( $plugin, $textdomain ) );
-
-    // If there is no translations folder, create one
-
+		$translations = Gettext\Translations::fromPoFile(  $item_list_table->find_language_file( $plugin ) );
 
 		// Save it in size this plugin trnalations directory
-		$translations->toPoFile(WPDT_PLUGIN_DIR . '/translations/' . $textdomain . '.po');
+		$translations->toPoFile(WPDT_PLUGIN_DIR . '/translations/' . $textdomain . '.pot');
   }
+
 
   /**
    * Copy .pot / .po file from Core, Theme or Plugin to this plugin's
@@ -191,7 +285,7 @@ class Dummy_Translator
    * @return String
    */
   function read_po_file( $textdomain ) {
-    $po_file = file_get_contents(WPDT_PLUGIN_DIR . '/translations/' . $textdomain . '.po');
+    $po_file = file_get_contents(WPDT_PLUGIN_DIR . '/translations/' . $textdomain . '.pot');
 
     return $po_file;
   }

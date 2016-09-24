@@ -5,6 +5,9 @@
  */
 class WPDT_Plugins_List_Table extends WP_List_Table
 {
+
+  private $generated = false;
+
     /**
      * Prepare the items for the table to process
      *
@@ -32,7 +35,7 @@ class WPDT_Plugins_List_Table extends WP_List_Table
         'name'       => __('Name', 'dummy-translator' ),
         'textdomain' => __('Text Domain', 'dummy-translator' ),
         'dummytext'  => __('Dummy Text', 'dummy-translator' ),
-        'file'       => __('Pot / Po file', 'dummy-translator' ),
+        'file'       => __('Pot File', 'dummy-translator' ),
         'actions'    => __('Actions', 'dummy-translator' )
       );
 
@@ -71,12 +74,16 @@ class WPDT_Plugins_List_Table extends WP_List_Table
 
       $data = array();
 
+      // Remove the plugin from the list
+      unset($plugins['dummy-translator/dummy-translator.php']);
+
       foreach ($plugins as $key => $value) {
 
 
 
-
         if( is_plugin_active( $key ) ) {
+
+
 
           preg_match("/.+\//", $key, $plugin);
 
@@ -157,6 +164,94 @@ class WPDT_Plugins_List_Table extends WP_List_Table
 
 
   /**
+   * Find Pot files in a plugin. It loads the files based on below criteria
+   * *.pot
+   * false
+   *
+   * @return string | false
+   */
+    public function find_pot_file( $plugin )
+    {
+
+      $Directory = new RecursiveDirectoryIterator(WP_PLUGIN_DIR . '/' . $plugin);
+      $Iterator  = new RecursiveIteratorIterator($Directory);
+
+      // Get only .pot files
+      $Regex = new RegexIterator($Iterator, '/^.+\.pot$/i', RecursiveRegexIterator::GET_MATCH);
+
+      foreach ($Regex as $potfile) {
+        if ( $potfile[0] )  {
+          return $potfile[0];
+        } else {
+          return false;
+        }
+      }
+
+    }
+
+  /**
+   * Find Pot files in a plugin. It loads the files based on below criteria
+   * *.pot
+   * false
+   *
+   * @return string | false
+   */
+    public function find_generated_pot_file( $textdomain )
+    {
+
+      $pot_file = $textdomain . '.pot';
+
+
+      if ( file_exists( WPDT_PLUGIN_TRANSLATIONS_DIR . '/' . $pot_file ) ) {
+        return WPDT_PLUGIN_TRANSLATIONS_DIR . '/' . $pot_file;
+      }
+
+      return false;
+
+      // $Directory = new RecursiveDirectoryIterator( WPDT_PLUGIN_TRANSLATIONS_DIR );
+      // $Iterator  = new RecursiveIteratorIterator( $Directory );
+      //
+      // // Get only .pot files
+      // $Regex = new RegexIterator($Iterator, '/^.+\.pot$/i', RecursiveRegexIterator::GET_MATCH);
+      //
+      // foreach ($Regex as $potfile) {
+      //   if ( $potfile[0] )  {
+      //     return $potfile[0];
+      //   } else {
+      //     return false;
+      //   }
+      // }
+
+    }
+
+    /**
+     * Find Po files in a plugin. It loads the files based on below criteria
+     * *-en_US.po
+     * *.po
+     * false
+     *
+     * @return string | false
+     */
+    public function find_pofile( $plugin )
+    {
+
+      $Directory = new RecursiveDirectoryIterator(WP_PLUGIN_DIR . '/' . $plugin);
+      $Iterator  = new RecursiveIteratorIterator($Directory);
+
+      // Get only .po files
+      $Regex = new RegexIterator($Iterator, '/^.+\.po$/i', RecursiveRegexIterator::GET_MATCH);
+
+      foreach ($Regex as $pofile) {
+        if ( preg_match( '/en_US.po$/', $pofile[0] ) )  {
+          return $pofile[0];
+        }
+      }
+
+      return false;
+
+    }
+
+  /**
    * Find Pot / Po file. It searches in
    * 1. Theme language directory
    * 2. WordPress global language directory
@@ -166,17 +261,22 @@ class WPDT_Plugins_List_Table extends WP_List_Table
    */
     public function find_language_file( $plugin = '', $textdomain )
     {
+      $lang_file = '';
+      $pot_file   = $this->find_pot_file( $plugin );
+      $generated_pot_file   = $this->find_generated_pot_file( $textdomain );
+      $pofile    = $this->find_pofile( $plugin );
 
-
-      $file = glob( WP_PLUGIN_DIR . '/' . $plugin . '/languages/*.po*' );
-
-      //var_dump(WP_PLUGIN_DIR . '/' . $plugin . 'languages/');
-
-      if ( $file ) {
-        return $file[0];
-      } else {
-        return false;
+      if ( $pot_file ) {
+        $this->generated = false;
+        return $lang_file = $pot_file;
       }
+
+      if ( $generated_pot_file ) {
+        $this->generated = true;
+       return $lang_file = $generated_pot_file;
+      }
+
+      return false;
 
     }
 
@@ -198,7 +298,7 @@ class WPDT_Plugins_List_Table extends WP_List_Table
     if ( file_exists( $file ) ) {
         return ['success', $file];
     } else {
-        return ['error', '<span>No file. <a href="#" data-nonce="' . $generate_nonce . '" data-action="generate" class="wpdt-action">' . __( 'Generate', 'dummy-translator' ) . '</a></span>'];
+        return ['error', '<span>No file. <a href="#" data-nonce="' . $generate_nonce . '" data-plugin="' . $plugin . '" data-type="plugin" data-action="generate" class="wpdt-action">' . __( 'Generate', 'dummy-translator' ) . '</a></span>'];
     }
   }
 
@@ -219,16 +319,16 @@ class WPDT_Plugins_List_Table extends WP_List_Table
         return;
       }
 
-      $filename = WPDT_PLUGIN_TRANSLATIONS_DIR . '/' . $textdomain . '.po';
+      $filename = WPDT_PLUGIN_TRANSLATIONS_DIR . '/' . $textdomain . '.mo';
 
       // Generate nonces
       $translate_nonce = wp_create_nonce( 'wpdt-translate-' . $textdomain );
       $delete_nonce = wp_create_nonce( 'wpdt-delete-' . $textdomain );
 
       if ( file_exists( $filename ) ) {
-          return '<a href="#" data-nonce="' . $translate_nonce . '" data-plugin="' . $plugin . '" data-type="plugin" data-action="translate" class="wpdt-action">' . __( 'Retranslate', 'dummy-translator' ) . '</a> &middot <a href="#" data-nonce="' . $delete_nonce . '" data-action="delete" class="wpdt-action wpdt-error">' . __( 'Delete', 'dummy-translator' ) . '</a>';
+          return '<a href="#" data-nonce="' . $translate_nonce . '" data-plugin="' . $plugin . '" data-type="plugin" data-generated="' . $this->generated . '" data-action="translate" class="wpdt-action">' . __( 'Retranslate', 'dummy-translator' ) . '</a> &middot <a href="#" data-nonce="' . $delete_nonce . '" data-action="delete" class="wpdt-action wpdt-error">' . __( 'Delete', 'dummy-translator' ) . '</a>';
       } else {
-          return '<a href="#" data-nonce="' . $translate_nonce . '" data-textdomain="' . $textdomain . '" data-plugin="' . $plugin . '" data-type="plugin" data-action="translate" class="wpdt-action">' . __( 'Translate', 'dummy-translator' ) . '</a>';
+          return '<a href="#" data-nonce="' . $translate_nonce . '" data-textdomain="' . $textdomain . '" data-plugin="' . $plugin . '" data-type="plugin" data-generated="' . $this->generated . '" data-action="translate" class="wpdt-action">' . __( 'Translate', 'dummy-translator' ) . '</a>';
       }
     }
 
